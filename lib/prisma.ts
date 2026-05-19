@@ -7,7 +7,10 @@ const prismaClientSingleton = () => {
   const isExternal = connectionString?.includes('supabase.com') || connectionString?.includes('pooler.supabase.com')
   const pool = new Pool({ 
     connectionString,
-    ssl: isExternal ? { rejectUnauthorized: false } : undefined
+    ssl: isExternal ? { rejectUnauthorized: false } : undefined,
+    max: 4, // Limit local pool size to prevent exceeding Supabase's max pool size of 15
+    connectionTimeoutMillis: 10000, // 10s to acquire connection from pool
+    idleTimeoutMillis: 10000, // 10s idle connection timeout
   })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
