@@ -149,6 +149,8 @@ export async function createLeadWithAssignments(data: {
     },
     {
       isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      timeout: 20000,
+      maxWait: 20000,
     }
   )
 }
