@@ -27,7 +27,7 @@ export default function RequestServicePage() {
     const errors: FieldErrors = {}
     if (!name.trim()) errors.name = 'Name is required'
     if (!phone.trim()) errors.phone = 'Phone number is required'
-    else if (!/^\\d{10}$/.test(phone.trim())) errors.phone = 'Phone must be exactly 10 digits'
+    else if (!/^\d{10}$/.test(phone.trim())) errors.phone = 'Phone must be exactly 10 digits'
     if (!city.trim()) errors.city = 'City is required'
     if (!serviceId) errors.serviceId = 'Please select a service'
     if (!description.trim()) errors.description = 'Description is required'
@@ -164,7 +164,7 @@ export default function RequestServicePage() {
                       id="phone" type="text" maxLength={10}
                       className={`form-input ${fieldErrors.phone ? 'form-input-error' : ''}`}
                       placeholder="e.g. 9876543210"
-                      value={phone} onChange={e => setPhone(e.target.value.replace(/\\D/g, '').slice(0, 10))} disabled={submitting}
+                      value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} disabled={submitting}
                     />
                     {fieldErrors.phone && <div className="form-error"><AlertCircle size={14}/>{fieldErrors.phone}</div>}
                   </div>
