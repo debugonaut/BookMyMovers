@@ -13,11 +13,6 @@
 
 \usetikzlibrary{shapes.geometric, arrows, positioning}
 
-% Define TikZ styles
-\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=teal, fill=teal!10, thick]
-\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=0.8cm, text centered, draw=blue!80, fill=blue!5, thick]
-\tikzstyle{decision} = [diamond, aspect=2, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=orange, fill=orange!10, thick]
-\tikzstyle{arrow} = [thick,->,>=stealth,draw=gray!80]
 
 % Page style setup
 \pagestyle{fancy}
@@ -120,28 +115,52 @@ The lead allocation algorithm distributes incoming customer requests to exactly 
 
 \subsection{Allocation Logic Flowchart}
 \begin{center}
-\begin{tikzpicture}[node distance=1.8cm, scale=0.85, every node/.style={scale=0.85}]
-    \node (start) [startstop] {Lead Request};
-    \node (checkm) [decision, below of=start, yshift=-0.5cm] {Mandatory Providers?};
-    \node (assignm) [process, right of=checkm, xshift=2.5cm] {Assign if Quota $<$ 10};
-    \node (pool) [process, below of=checkm, yshift=-0.8cm] {Get Round-Robin Pool};
-    \node (rotate) [decision, below of=pool, yshift=-0.6cm] {Quota Available \& New?};
-    \node (assignp) [process, right of=rotate, xshift=2.5cm] {Assign \& Advance Index};
-    \node (skip) [process, below of=rotate, yshift=-0.6cm] {Increment Index};
-    \node (three) [decision, below of=assignp, yshift=-0.6cm] {Exactly 3 Assigned?};
-    \node (save) [startstop, below of=three, yshift=-0.8cm] {Save Lead (Commit)};
+\begin{tikzpicture}[
+    node distance=1.2cm and 2.2cm,
+    font=\sffamily\small,
+    every node/.style={align=center}
+]
+    % Define styles locally
+    \tikzset{
+        block/.style={rectangle, draw=teal, fill=teal!5, text width=3.2cm, minimum height=1cm, text centered, rounded corners=4px, thick},
+        decision/.style={diamond, draw=orange, fill=orange!5, text width=2.4cm, text centered, aspect=1.6, thick},
+        arrow/.style={thick,->,>=stealth,draw=gray!80}
+    }
+
+    % Nodes
+    \node [block] (start) {Lead Request};
+    \node [decision, below=1cm of start] (checkm) {Mandatory\\Providers?};
+    \node [block, right=2cm of checkm] (assignm) {Assign if\\Quota $<$ 10};
+    \node [block, below=1.5cm of checkm] (pool) {Get Round-Robin\\Provider Pool};
+    \node [decision, below=1cm of pool] (rotate) {Quota Avail.\\\& New?};
+    \node [block, right=2cm of rotate] (assignp) {Assign \&\\Advance Index};
+    \node [block, below=1.5cm of rotate] (skip) {Increment\\Index};
+    \node [decision, below=1.5cm of skip] (three) {Exactly 3\\Assigned?};
+    \node [block, below=1.5cm of three] (save) {Save Lead\\(Commit)};
     
+    % Paths
     \draw [arrow] (start) -- (checkm);
-    \draw [arrow] (checkm) -- node[anchor=south] {Yes} (assignm);
-    \draw [arrow] (checkm) -- node[anchor=east] {No} (pool);
+    \draw [arrow] (checkm) -- node[above, xshift=0.1cm] {Yes} (assignm);
+    \draw [arrow] (checkm) -- node[left] {No} (pool);
     \draw [arrow] (assignm) |- (pool);
     \draw [arrow] (pool) -- (rotate);
-    \draw [arrow] (rotate) -- node[anchor=south] {Yes} (assignp);
-    \draw [arrow] (rotate) -- node[anchor=east] {No} (skip);
-    \draw [arrow] (skip) -| [xshift=-1.5cm] (rotate);
-    \draw [arrow] (assignp) -- (three);
-    \draw [arrow] (three) -- node[anchor=west] {Yes} (save);
-    \draw [arrow] (three) |- node[anchor=south, xshift=-2.2cm] {No} (pool);
+    \draw [arrow] (rotate) -- node[above, xshift=0.1cm] {Yes} (assignp);
+    \draw [arrow] (rotate) -- node[left] {No} (skip);
+    
+    % Loop from skip back to rotate
+    \draw [arrow] (skip.west) -- ++(-1.2,0) |- (rotate.west);
+    
+    % From assignp to three
+    \draw [arrow] (assignp.south) |- (three.east);
+    
+    % From skip to three
+    \draw [arrow] (skip.south) -- (three.north);
+    
+    % From three to save
+    \draw [arrow] (three) -- node[left] {Yes} (save);
+    
+    % Loop from three back to pool (outer loop on the left)
+    \draw [arrow] (three.west) -- ++(-2.4,0) |- node[left, yshift=2.5cm] {No} (pool.west);
 \end{tikzpicture}
 \end{center}
 
