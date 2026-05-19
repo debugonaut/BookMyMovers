@@ -225,7 +225,7 @@ export default function TestToolsPage() {
             <div className="form-group mb-0">
               <label className="form-label">Target Provider</label>
               <div style={{ position: 'relative' }}>
-                <select className="form-select" style={{ appearance: 'none' }} value={webhookProviderId} onChange={(e) => setWebhookProviderId(e.target.value)} disabled={webhookLoading || idempotencyLoading}>
+                <select className="form-select" style={{ appearance: 'none' }} value={webhookProviderId} onChange={(e) => { setWebhookProviderId(e.target.value); setIdempotencyKey(generateUUID()); }} disabled={webhookLoading || idempotencyLoading}>
                   {Array.from({ length: 8 }, (_, i) => i + 1).map((id) => <option key={id} value={id}>Provider {id}</option>)}
                 </select>
                 <ChevronDown size={18} style={{ position: 'absolute', right: '1rem', top: '0.8rem', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
