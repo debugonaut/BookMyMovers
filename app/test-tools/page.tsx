@@ -57,8 +57,31 @@ export default function TestToolsPage() {
   const [allocLoading, setAllocLoading] = useState(false)
   const [allocData, setAllocData] = useState<AllocationDebug>(null)
   const [showAlloc, setShowAlloc] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   // ─── Handlers ───────────────────────────────────────────────
+
+  async function handleResetDatabase() {
+    if (!confirm('Are you sure you want to delete all leads, assignments, and reset all quotas and allocation states?')) {
+      return
+    }
+    setResetLoading(true)
+    try {
+      const res = await fetch('/api/test/reset', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) {
+        if (showAlloc) {
+          await loadAllocationState()
+        }
+      } else {
+        alert('Reset failed: ' + (json.error || 'Unknown error'))
+      }
+    } catch (err: any) {
+      alert('Error: ' + err.message)
+    } finally {
+      setResetLoading(false)
+    }
+  }
 
   async function loadAllocationState() {
     try {
@@ -363,11 +386,14 @@ export default function TestToolsPage() {
             </div>
           )}
 
-          <div className="divider mt-3 mb-2" />
-          
-          <button type="button" className="btn btn-outline" onClick={fetchAllocationState} disabled={allocLoading}>
-            <Server size={18} /> {showAlloc ? 'Hide Allocation State' : 'Check Allocation State'}
-          </button>
+          <div className="flex-gap flex-wrap mt-3 mb-2">
+            <button type="button" className="btn btn-outline" onClick={fetchAllocationState} disabled={allocLoading}>
+              <Server size={18} /> {showAlloc ? 'Hide Allocation State' : 'Check Allocation State'}
+            </button>
+            <button type="button" className="btn btn-danger" onClick={handleResetDatabase} disabled={resetLoading || allocLoading}>
+              {resetLoading ? <><span className="spinner" /> Resetting...</> : 'Reset All Database State'}
+            </button>
+          </div>
 
           {showAlloc && allocData && (
             <div className="mt-3 animate-fade-in p-3 bg-page rounded-xl border">
