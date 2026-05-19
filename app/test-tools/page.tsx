@@ -60,6 +60,16 @@ export default function TestToolsPage() {
 
   // ─── Handlers ───────────────────────────────────────────────
 
+  async function loadAllocationState() {
+    try {
+      const res = await fetch('/api/debug/allocation-state')
+      const json = await res.json()
+      if (json.success) setAllocData(json.data)
+    } catch {
+      setAllocData(null)
+    }
+  }
+
   async function fireWebhookOnce() {
     setWebhookLoading(true)
     try {
@@ -84,6 +94,9 @@ export default function TestToolsPage() {
       }
 
       setWebhookLog((prev) => [entry, ...prev].slice(0, 5))
+      if (showAlloc) {
+        await loadAllocationState()
+      }
     } catch (err: any) {
       const entry: WebhookLogEntry = {
         timestamp: new Date().toLocaleTimeString(),
@@ -128,6 +141,9 @@ export default function TestToolsPage() {
       }
 
       setIdempotencyResult({ processed, duplicates, errors })
+      if (showAlloc) {
+        await loadAllocationState()
+      }
     } catch {
       setIdempotencyResult({ processed: 0, duplicates: 0, errors: 5 })
     } finally {
@@ -156,6 +172,9 @@ export default function TestToolsPage() {
         setBulkResults([])
         setBulkStats({ total: 0, succeeded: 0, failed: 0 })
       }
+      if (showAlloc) {
+        await loadAllocationState()
+      }
     } catch {
       setBulkResults([])
       setBulkStats({ total: 0, succeeded: 0, failed: 0 })
@@ -173,11 +192,7 @@ export default function TestToolsPage() {
     setAllocLoading(true)
     setShowAlloc(true)
     try {
-      const res = await fetch('/api/debug/allocation-state')
-      const json = await res.json()
-      if (json.success) setAllocData(json.data)
-    } catch {
-      setAllocData(null)
+      await loadAllocationState()
     } finally {
       setAllocLoading(false)
     }
