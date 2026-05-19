@@ -73,11 +73,20 @@ export async function createLeadWithAssignments(data: {
       let currentIndex = lastAllocatedProviderIndex
 
       // 3. Fetch all potential providers for this service with their current quota usage
-      const providers = await tx.provider.findMany({
-        where: {
-          id: { in: [...config.mandatoryProviders, ...config.poolProviders] },
-        },
-      })
+      // We use row-level locks (FOR UPDATE) sorted by ID to prevent deadlocks and ensure
+      // cross-service concurrency doesn't cause a provider to exceed their quota.
+      const providerIds = [...config.mandatoryProviders, ...config.poolProviders]
+      const providers = await tx.$queryRaw<
+        { id: number; name: string; leadsReceivedThisMonth: number }[]
+      >(
+        Prisma.sql`
+          SELECT id, name, "leadsReceivedThisMonth" 
+          FROM "Provider" 
+          WHERE id IN (${Prisma.join(providerIds)}) 
+          ORDER BY id 
+          FOR UPDATE
+        `
+      )
 
       const providerMap = new Map(providers.map((p) => [p.id, p]))
       const selectedProviders: number[] = []
@@ -110,6 +119,11 @@ export async function createLeadWithAssignments(data: {
           }
         }
         poolAttempts++
+      }
+
+      // If we cannot fulfill the exact 3 provider requirement, roll back the transaction
+      if (selectedProviders.length !== 3) {
+        throw new Error('NOT_ENOUGH_PROVIDERS')
       }
 
       // 6. If we have selected providers, assign them and increment their quota counts

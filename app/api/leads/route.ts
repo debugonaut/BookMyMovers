@@ -53,21 +53,47 @@ export async function POST(request: Request) {
 
     // 3 & 4. Insert the Lead record & Call assignProviders via lib helper
     // The lib helper createLeadWithAssignments handles both atomically
-    const lead = await createLeadWithAssignments({
-      customerName: name,
-      phone,
-      city,
-      serviceId,
-      description,
-    })
+    let lead;
+    try {
+      lead = await createLeadWithAssignments({
+        customerName: name,
+        phone,
+        city,
+        serviceId,
+        description,
+      })
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'A lead with this phone number already exists for this service.',
+            code: 'DUPLICATE_LEAD',
+          },
+          { status: 409, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      if (err.message === 'NOT_ENOUGH_PROVIDERS') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Not enough available providers to assign exactly 3 to this lead.',
+            code: 'NO_PROVIDERS_AVAILABLE'
+          },
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      throw err;
+    }
 
     const assignedProviderNames = lead?.assignments.map(a => a.provider.name) || []
 
-    if (assignedProviderNames.length === 0) {
+    if (assignedProviderNames.length !== 3) {
       return NextResponse.json(
         {
           success: false,
-          error: 'No providers available at this time',
+          error: 'Could not assign exactly 3 providers at this time.',
           code: 'NO_PROVIDERS_AVAILABLE'
         },
         { status: 503, headers: { 'Content-Type': 'application/json' } }
