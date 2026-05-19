@@ -4,7 +4,7 @@ This is a production-ready, highly reliable implementation of the Prowider Mini 
 
 ---
 
-## 🛠️ Setup & Running Instructions
+## Setup and Running Instructions
 
 ### 1. Prerequisites
 Ensure you have the following installed on your system:
@@ -23,7 +23,7 @@ Create a `.env` file in the root of the project with your PostgreSQL database UR
 DATABASE_URL="postgresql://username:password@localhost:5455/prowider_leads?schema=public"
 ```
 
-### 4. Database Setup & Seeding
+### 4. Database Setup and Seeding
 Run the Prisma migrations to create the database tables and automatically seed initial services, providers, and allocation states:
 ```bash
 npx prisma migrate dev
@@ -42,14 +42,14 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🧠 Engineering & Architecture Explanations
+## Engineering and Architecture Explanations
 
 ### 1. Allocation Algorithm
 Our lead distribution follows a deterministic, fair, and quota-respecting allocation logic:
 1.  **Mandatory Rules Check**: For each new lead, the algorithm first checks if there are any mandatory providers for the selected service:
-    *   **Service 1** $\rightarrow$ Provider 1
-    *   **Service 2** $\rightarrow$ Provider 5
-    *   **Service 3** $\rightarrow$ Provider 1 and Provider 4
+    *   **Service 1** -> Provider 1
+    *   **Service 2** -> Provider 5
+    *   **Service 3** -> Provider 1 and Provider 4
     *   If a mandatory provider has remaining monthly quota (under the limit of 10), they are immediately assigned.
 2.  **Round-Robin Pool Selection**: If more slots are needed to reach exactly 3 assigned providers, the algorithm queries the service's designated provider pool:
     *   **Service 1 Pool**: Providers 2, 3, 4
@@ -57,7 +57,7 @@ Our lead distribution follows a deterministic, fair, and quota-respecting alloca
     *   **Service 3 Pool**: Providers 2, 3, 5, 6, 7, 8
 3.  **Rotation Persistence**: We maintain the index of the last-allocated provider for each service in the `AllocationState` database table. The pool is rotated, checking for provider quota availability and duplicate-assignment avoidance, until exactly 3 providers are successfully assigned.
 
-### 2. Concurrency & Race Condition Handling
+### 2. Concurrency and Race Condition Handling
 To prevent race conditions (such as double-assigning providers or exceeding monthly quotas under simultaneous requests), we implement **database-level transaction locks**:
 1.  Allocation queries execute inside an atomic Prisma transaction (`prisma.$transaction`).
 2.  The transaction places an exclusive lock on the targeted service's index using a **`SELECT FOR UPDATE`** SQL query:
@@ -75,7 +75,7 @@ To prevent subscription-renewing webhook events (which reset a provider's monthl
 2.  If the key already exists, the request returns a `200 OK` duplicate status immediately, bypassing execution.
 3.  On concurrent webhook races, the database's unique constraint on `idempotencyKey` throws a key violation error, aborting the transaction cleanly and ensuring the quota is only reset once.
 
-### 4. Security & Safety Controls
+### 4. Security and Safety Controls
 *   **OWASP Security Headers**: Custom Next.js middleware forces secure HTTP headers on all pages and APIs, including `X-Frame-Options: DENY` (Anti-Clickjacking), `X-Content-Type-Options: nosniff` (Anti-MIME Sniffing), and strict `Permissions-Policy`.
 *   **CORS Protection**: Access to the API routes is locked to same-origin requests by default, preventing external malicious scripts from triggering lead generation or resets.
 *   **Rate Limiting**: Integrated in-memory sliding window rate limits on APIs (`/api/leads` and `/api/webhook/quota-reset`) returning `HTTP 429 Too Many Requests` on abuse.
