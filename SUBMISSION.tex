@@ -1,0 +1,217 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tikz}
+\usepackage{hyperref}
+
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+% Define TikZ styles
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=teal, fill=teal!10, thick]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=0.8cm, text centered, draw=blue!80, fill=blue!5, thick]
+\tikzstyle{decision} = [diamond, aspect=2, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=orange, fill=orange!10, thick]
+\tikzstyle{arrow} = [thick,->,>=stealth,draw=gray!80]
+
+% Page style setup
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\textbf{Prowider System Submission}}
+\lhead{\textbf{Lead Distribution Report}}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+
+% Section formatting
+\titleformat{\section}{\large\bfseries\color{teal}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{blue!80!black}}{\thesubsection.}{0.5em}{}
+
+% Listings code styling
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.13,0.13,1}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstset{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codeblue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{orange},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    frame=single,
+    rulecolor=\color{gray!30}
+}
+
+\title{\textbf{\Huge Prowider Mini Lead Distribution System} \\[0.4cm] \large Technical Design and Submission Documentation}
+\author{\textbf{Aadesh Khande}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\hr
+\tableofcontents
+\newpage
+
+\section{Setup and Running Instructions}
+
+This section describes the configuration and execution procedure to run the lead distribution system locally or deploy it to a staging/production server.
+
+\subsection{Prerequisites}
+\begin{itemize}
+    \item \textbf{Node.js}: v18.x or later.
+    \item \textbf{PostgreSQL}: Running locally or a hosted cloud database.
+\end{itemize}
+
+\subsection{Step-by-Step Installation}
+\begin{enumerate}
+    \item \textbf{Install Node Modules}: Extract the package, open the command-line interface in the root directory, and install dependencies:
+    \begin{lstlisting}[language=bash]
+npm install
+    \end{lstlisting}
+    
+    \item \textbf{Environment Configuration}: Create a \texttt{.env} file in the root directory and set the connection string to your PostgreSQL instance:
+    \begin{lstlisting}[language=bash]
+DATABASE_URL="postgresql://username:password@localhost:5432/prowider_db?schema=public"
+    \end{lstlisting}
+    
+    \item \textbf{Database Initialization \& Seeding}: Run the migrations to build the tables, indices, and automatically seed static assets:
+    \begin{lstlisting}[language=bash]
+npx prisma migrate dev
+    \end{lstlisting}
+    \textit{Note: This builds tables for \texttt{Service}, \texttt{Provider}, \texttt{Lead}, \texttt{LeadAssignment}, \texttt{AllocationState}, and \texttt{WebhookEvent}, and seeds Services 1--3 and Providers 1--8.}
+    
+    \item \textbf{Run the Application}: Start the Next.js local development server:
+    \begin{lstlisting}[language=bash]
+npm run dev
+    \end{lstlisting}
+    Access the application at \url{http://localhost:3000}.
+\end{enumerate}
+
+\subsection{Core Application Endpoints}
+\begin{itemize}
+    \item \textbf{Lead Submission Portal}: \url{http://localhost:3000/request-service} (Customer Interface)
+    \item \textbf{Live Provider Dashboard}: \url{http://localhost:3000/dashboard} (Real-time quota monitoring)
+    \item \textbf{Internal Test Panel}: \url{http://localhost:3000/test-tools} (Webhook, resetting, and concurrency tools)
+\end{itemize}
+
+\newpage
+
+\section{Lead Allocation Algorithm}
+
+The lead allocation algorithm distributes incoming customer requests to exactly three distinct providers under strict rules.
+
+\subsection{Allocation Logic Flowchart}
+\begin{center}
+\begin{tikzpicture}[node distance=1.8cm, scale=0.85, every node/.style={scale=0.85}]
+    \node (start) [startstop] {Lead Request};
+    \node (checkm) [decision, below of=start, yshift=-0.5cm] {Mandatory Providers?};
+    \node (assignm) [process, right of=checkm, xshift=2.5cm] {Assign if Quota $<$ 10};
+    \node (pool) [process, below of=checkm, yshift=-0.8cm] {Get Round-Robin Pool};
+    \node (rotate) [decision, below of=pool, yshift=-0.6cm] {Quota Available \& New?};
+    \node (assignp) [process, right of=rotate, xshift=2.5cm] {Assign \& Advance Index};
+    \node (skip) [process, below of=rotate, yshift=-0.6cm] {Increment Index};
+    \node (three) [decision, below of=assignp, yshift=-0.6cm] {Exactly 3 Assigned?};
+    \node (save) [startstop, below of=three, yshift=-0.8cm] {Save Lead (Commit)};
+    
+    \draw [arrow] (start) -- (checkm);
+    \draw [arrow] (checkm) -- node[anchor=south] {Yes} (assignm);
+    \draw [arrow] (checkm) -- node[anchor=east] {No} (pool);
+    \draw [arrow] (assignm) |- (pool);
+    \draw [arrow] (pool) -- (rotate);
+    \draw [arrow] (rotate) -- node[anchor=south] {Yes} (assignp);
+    \draw [arrow] (rotate) -- node[anchor=east] {No} (skip);
+    \draw [arrow] (skip) -| [xshift=-1.5cm] (rotate);
+    \draw [arrow] (assignp) -- (three);
+    \draw [arrow] (three) -- node[anchor=west] {Yes} (save);
+    \draw [arrow] (three) |- node[anchor=south, xshift=-2.2cm] {No} (pool);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Rule Details}
+\begin{enumerate}
+    \item \textbf{Quota Restrictions}: No provider can receive more than 10 leads per month. Providers at capacity are skipped.
+    \item \textbf{Service Rules (Mandatory)}:
+    \begin{itemize}
+        \item \textbf{Service 1}: Provider 1 is mandatory.
+        \item \textbf{Service 2}: Provider 5 is mandatory.
+        \item \textbf{Service 3}: Providers 1 and 4 are mandatory.
+    \end{itemize}
+    \item \textbf{Round-Robin Pools}: If mandatory assignments are insufficient, the pool is rotated:
+    \begin{itemize}
+        \item \textbf{Service 1 Pool}: Providers 2, 3, and 4
+        \item \textbf{Service 2 Pool}: Providers 6, 7, and 8
+        \item \textbf{Service 3 Pool}: Providers 2, 3, 5, 6, 7, and 8
+    \end{itemize}
+    \item \textbf{Strict Rollback}: If a lead cannot be assigned to exactly three eligible providers due to exhausted pools, the transaction raises a \texttt{NOT\_ENOUGH\_PROVIDERS} rollback, keeping the database intact.
+\end{enumerate}
+
+\newpage
+
+\section{Concurrency & Race Condition Handling}
+
+High volumes of concurrent transactions could result in race conditions. For example, two threads processing leads concurrently could read the same round-robin pool index, leading to duplicate assignment or quota exhaustion.
+
+\subsection{Row-Level Database Locking (\texttt{FOR UPDATE})}
+To ensure transaction isolation, we wrap the allocation logic in an atomic Prisma transaction and lock the round-robin state:
+\begin{lstlisting}[language=SQL]
+SELECT id, "lastAllocatedProviderIndex" 
+FROM "AllocationState" 
+WHERE "serviceId" = $1 
+FOR UPDATE;
+\end{lstlisting}
+This locks the matching record. Concurrent transactions for the same service are forced to queue until the executing transaction commits or rolls back, maintaining sequential, deterministic updates.
+
+\subsection{Deadlock Prevention}
+To avoid cross-locking deadlocks, the transaction locks all needed provider records (to increment their lead counters) using sorted IDs:
+\begin{lstlisting}[language=javascript]
+// Deterministic lock acquisition order
+const sortedProviderIds = Array.from(new Set(selectedProviders)).sort((a, b) => a - b);
+\end{lstlisting}
+
+\subsection{Driver-Level Connection Limits}
+To support simultaneous requests without exceeding PostgreSQL session limits, Next.js implements database-side queuing by capping driver connections:
+\begin{lstlisting}[language=javascript]
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 4,                      // Cap connections to prevent crash
+  idleTimeoutMillis: 10000,    // Reclaim resources rapidly
+  connectionTimeoutMillis: 10000
+});
+\end{lstlisting}
+
+\section{Webhook Idempotency Safeguards}
+
+When receiving quota-reset webhooks from payment processors, network retries could re-execute the webhook, corrupting provider quota tracking.
+
+\subsection{Exactly-Once Processing Strategy}
+\begin{enumerate}
+    \item \textbf{Unique Constraint}: We store the \texttt{idempotencyKey} in the \texttt{WebhookEvent} database model with a unique index.
+    \item \textbf{Atomic Double-Check}: Upon receipt, the API check runs:
+    \begin{lstlisting}[language=javascript]
+const existingEvent = await tx.webhookEvent.findUnique({
+  where: { idempotencyKey }
+});
+if (existingEvent) return { status: 200, message: "Duplicate Event" };
+    \end{lstlisting}
+    \item \textbf{Race Containment}: If two webhooks execute in parallel and pass the check, the database triggers a unique key violation. The transaction aborts cleanly, and the client receives a safe duplicate-ignored response.
+\end{enumerate}
+
+\end{document}
